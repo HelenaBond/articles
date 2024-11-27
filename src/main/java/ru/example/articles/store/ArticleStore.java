@@ -36,8 +36,8 @@ public class ArticleStore implements Store<Article>, AutoCloseable {
                     properties.getProperty("username"),
                     properties.getProperty("password")
             );
-        } catch (SQLException throwables) {
-            LOGGER.error("Не удалось выполнить операцию: { }", throwables.getCause());
+        } catch (SQLException throwable) {
+            LOGGER.error("Не удалось выполнить операцию: { }", throwable.getCause());
             throw new IllegalStateException();
         }
     }
@@ -54,35 +54,33 @@ public class ArticleStore implements Store<Article>, AutoCloseable {
     }
 
     @Override
-    public Article save(Article model) {
+    public void save(Article model) {
         LOGGER.info("Сохранение статьи");
-        var sql = "insert into articles(text) values(?)";
-        try (var statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            statement.setString(1, model.getText());
-            statement.executeUpdate();
-            var key = statement.getGeneratedKeys();
-            while (key.next()) {
-                model.setId(key.getInt(1));
-            }
+        var sql = "insert into articles(text) values(?);";
+        try (var preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            preparedStatement.setString(1, model.getText());
+            preparedStatement.executeUpdate();
         } catch (Exception e) {
             LOGGER.error("Не удалось выполнить операцию: { }", e.getCause());
             throw new IllegalStateException();
         }
-        return model;
     }
 
     @Override
-    public List<Article> findAll() {
-        LOGGER.info("Загрузка всех статей");
-        var sql = "select * from articles";
+    public List<Article> findAllAfter(int id, int size) {
+        LOGGER.info("Загрузка {} статей после id = {}", size, id);
+        var sql = "select * from articles where id > ? limit ?;";
         var articles = new ArrayList<Article>();
-        try (var statement = connection.prepareStatement(sql)) {
-            var selection = statement.executeQuery();
-            while (selection.next()) {
-                articles.add(new Article(
-                        selection.getInt("id"),
-                        selection.getString("text")
-                ));
+        try (var preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setInt(1, id);
+            preparedStatement.setInt(2, size);
+            try (var resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    articles.add(new Article(
+                            resultSet.getInt("id"),
+                            resultSet.getString("text")
+                    ));
+                }
             }
         } catch (Exception e) {
             LOGGER.error("Не удалось выполнить операцию: { }", e.getCause());

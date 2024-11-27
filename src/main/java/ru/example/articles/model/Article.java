@@ -30,4 +30,12 @@ public class Article {
     public void setText(String text) {
         this.text = text;
     }
+
+    @Override
+    public String toString() {
+        return "Article{"
+                + "id=" + id
+                + ", text='" + text + '\''
+                + '}';
+    }
 }

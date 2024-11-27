@@ -66,35 +66,33 @@ public class WordStore implements Store<Word>, AutoCloseable {
     }
 
     @Override
-    public Word save(Word model) {
+    public void save(Word model) {
         LOGGER.info("Добавление слова в базу данных");
         var sql = "insert into dictionary(word) values(?);";
-        try (var statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            statement.setString(1, model.getValue());
-            statement.executeUpdate();
-            var key = statement.getGeneratedKeys();
-            if (key.next()) {
-                model.setId(key.getInt(1));
-            }
+        try (var preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            preparedStatement.setString(1, model.getValue());
+            preparedStatement.executeUpdate();
         } catch (Exception e) {
             LOGGER.error("Не удалось выполнить операцию: { }", e.getCause());
             throw new IllegalStateException();
         }
-        return model;
     }
 
     @Override
-    public List<Word> findAll() {
+    public List<Word> findAllAfter(int id, int size) {
         LOGGER.info("Загрузка всех слов");
-        var sql = "select * from dictionary";
+        var sql = "select * from dictionary where id > ? limit ?;";
         var words = new ArrayList<Word>();
-        try (var statement = connection.prepareStatement(sql)) {
-            var selection = statement.executeQuery();
-            while (selection.next()) {
-                words.add(new Word(
-                        selection.getInt("id"),
-                        selection.getString("word")
-                ));
+        try (var preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setInt(1, id);
+            preparedStatement.setInt(2, size);
+            try (var resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    words.add(new Word(
+                            resultSet.getInt("id"),
+                            resultSet.getString("word")
+                    ));
+                }
             }
         } catch (Exception e) {
             LOGGER.error("Не удалось выполнить операцию: { }", e.getCause());
